@@ -16,7 +16,7 @@ contract BNPLRouter is Ownable {
 
     event MerchantPaid(address indexed user, address indexed merchant, uint256 amount);
 
-    constructor(address _creditManager, address _debtManager, address _paymentToken) Ownable() {
+    constructor(address _creditManager, address _debtManager, address _paymentToken) Ownable(msg.sender) {
         i_creditManager = CreditManager(_creditManager);
         i_debtManager = DebtManager(_debtManager);
         i_paymentToken = IERC20(_paymentToken);
@@ -44,6 +44,11 @@ contract BNPLRouter is Ownable {
         emit MerchantPaid(_user, _merchant, _amount);
     }
     
+    function repayDebt(address _user, uint256 _amount) external {
+        i_paymentToken.safeTransferFrom(msg.sender, address(this), _amount);
+        i_debtManager.repay(_user, _amount);
+    }
+
     // Admin functions to manage liquidity
     function addLiquidity(uint256 _amount) external {
         i_paymentToken.safeTransferFrom(msg.sender, address(this), _amount);

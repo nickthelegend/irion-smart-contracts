@@ -1,4 +1,6 @@
 const hre = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
     const networkName = hre.network.name;
@@ -7,76 +9,102 @@ async function main() {
     const [deployer] = await hre.ethers.getSigners();
     console.log("Deploying contracts with the account:", deployer.address);
 
+    const deploymentsPath = path.join(__dirname, "../deployments.json");
+    let deployments = {};
+    if (fs.existsSync(deploymentsPath)) {
+        deployments = JSON.parse(fs.readFileSync(deploymentsPath, "utf8"));
+    }
+
     if (networkName === "avalancheFuji") {
-        await deployMasterContracts();
-    } else if (networkName === "polygonAmoy") {
-        await deploySatelliteContracts();
+        await deployMaster(deployer, deployments, deploymentsPath);
     } else {
-        console.log("Network not recognized as Master or Satellite. Please use --network avalancheFuji or --network polygonAmoy");
-        // Optionally deploy mocks for local testing
+        await deploySatellite(deployer, deployments, deploymentsPath, networkName);
     }
 }
 
-async function deployMasterContracts() {
+async function deployMaster(deployer, deployments, deploymentsPath) {
     console.log("\n--- Deploying Master Chain Contracts (Avalanche Fuji) ---");
 
-    // Placeholder addresses - TO BE UPDATED WITH REAL CCIP ROUTER ADDRESSES
-    const routerAddress = "0xF694E193200268f9a4868e4Aa017a0118C9a8177"; // Avalanche Fuji Router
-    const linkToken = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"; // Avalanche Fuji LINK
+    const routerAddress = "0xf694e193200268f9a4868e4aa017a0118c9a8177";
 
-    // 1. Deploy MasterCCIPReceiver
-    const MasterCCIPReceiver = await hre.ethers.getContractFactory("MasterCCIPReceiver");
-    const masterReceiver = await MasterCCIPReceiver.deploy(routerAddress);
-    await masterReceiver.waitForDeployment();
-    console.log(`MasterCCIPReceiver deployed to: ${masterReceiver.target}`);
-
-    // 2. Deploy CreditManager
+    // 1. CreditManager
     const CreditManager = await hre.ethers.getContractFactory("CreditManager");
-    const creditManager = await CreditManager.deploy(masterReceiver.target);
+    const creditManager = await CreditManager.deploy();
     await creditManager.waitForDeployment();
-    console.log(`CreditManager deployed to: ${creditManager.target}`);
+    const creditManagerAddr = await creditManager.getAddress();
+    console.log(`CreditManager: ${creditManagerAddr}`);
 
-    // 3. Deploy DebtManager
+    // 2. DebtManager
     const DebtManager = await hre.ethers.getContractFactory("DebtManager");
-    const debtManager = await DebtManager.deploy(masterReceiver.target);
+    const debtManager = await DebtManager.deploy();
     await debtManager.waitForDeployment();
-    console.log(`DebtManager deployed to: ${debtManager.target}`);
+    const debtManagerAddr = await debtManager.getAddress();
+    console.log(`DebtManager: ${debtManagerAddr}`);
 
-    // 4. Deploy BNPLRouter
+    // 3. MasterCCIPReceiver
+    const MasterCCIPReceiver = await hre.ethers.getContractFactory("MasterCCIPReceiver");
+    const masterReceiver = await MasterCCIPReceiver.deploy(routerAddress, creditManagerAddr, debtManagerAddr);
+    await masterReceiver.waitForDeployment();
+    const masterReceiverAddr = await masterReceiver.getAddress();
+    console.log(`MasterCCIPReceiver: ${masterReceiverAddr}`);
+
+    // 4. BNPLRouter
+    const MockToken = await hre.ethers.getContractFactory("MockERC20");
+    const mockToken = await MockToken.deploy("Irion USDC", "iUSDC", ethers.parseEther("1000000"));
+    await mockToken.waitForDeployment();
+    const mockTokenAddr = await mockToken.getAddress();
+    console.log(`MockToken: ${mockTokenAddr}`);
+
     const BNPLRouter = await hre.ethers.getContractFactory("BNPLRouter");
-    const bnplRouter = await BNPLRouter.deploy(creditManager.target, debtManager.target);
+    const bnplRouter = await BNPLRouter.deploy(creditManagerAddr, debtManagerAddr, mockTokenAddr);
     await bnplRouter.waitForDeployment();
-    console.log(`BNPLRouter deployed to: ${bnplRouter.target}`);
+    const bnplRouterAddr = await bnplRouter.getAddress();
+    console.log(`BNPLRouter: ${bnplRouterAddr}`);
 
-    // 5. Deploy LiquidationController
-    const LiquidationController = await hre.ethers.getContractFactory("LiquidationController");
-    const liquidationController = await LiquidationController.deploy(debtManager.target, routerAddress);
-    await liquidationController.waitForDeployment();
-    console.log(`LiquidationController deployed to: ${liquidationController.target}`);
+    // Wire up permissions
+    console.log("Setting up permissions...");
+    await creditManager.setAuthorizedContracts(masterReceiverAddr, bnplRouterAddr, deployer.address);
+    await debtManager.setAuthorizedContracts(bnplRouterAddr);
 
-    // Wire up dependencies
-    console.log("Wiring up dependencies...");
-    await masterReceiver.setCreditManager(creditManager.target);
-    await masterReceiver.setDebtManager(debtManager.target);
-    // Add other wiring as needed
+    deployments["avalancheFuji"] = {
+        CreditManager: creditManagerAddr,
+        DebtManager: debtManagerAddr,
+        MasterCCIPReceiver: masterReceiverAddr,
+        BNPLRouter: bnplRouterAddr
+    };
+
+    fs.writeFileSync(deploymentsPath, JSON.stringify(deployments, null, 2));
 }
 
-async function deploySatelliteContracts() {
-    console.log("\n--- Deploying Satellite Chain Contracts (Polygon Amoy) ---");
+async function deploySatellite(deployer, deployments, deploymentsPath, networkName) {
+    console.log(`\n--- Deploying Satellite Chain Contracts (${networkName}) ---`);
 
-    // Placeholder addresses - TO BE UPDATED WITH REAL CCIP ROUTER ADDRESSES
-    const routerAddress = "0x9C32fCB86BF0f4a7A9420843d000646098619643"; // Polygon Amoy Router
-    const linkToken = "0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904"; // Polygon Amoy LINK
+    const routers = {
+        ethereumSepolia: "0x0bf3de8c5d3e8a2b34d2beeb17abfcebaf363a59",
+        baseSepolia: "0xd3b06143f349418394ef3752717846467b00d981",
+        polygonAmoy: "0x9c32fcb86bf0f4a7a9420843d000646098619643"
+    };
 
-    // Master Chain Selector for Avalanche Fuji
-    const masterChainSelector = "14767482510784806043";
-    const masterReceiverAddress = "0x0000000000000000000000000000000000000000"; // UPDATE THIS AFTER DEPLOYING MASTER
+    const masterChainSelector = "14767482510784806043"; // Avalanche Fuji
+    const masterReceiver = deployments["avalancheFuji"]?.MasterCCIPReceiver;
 
-    // 1. Deploy CollateralVault
+    if (!masterReceiver) {
+        console.error("Deploy Master on Avalanche Fuji first!");
+        return;
+    }
+
+    const router = routers[networkName];
     const CollateralVault = await hre.ethers.getContractFactory("CollateralVault");
-    const collateralVault = await CollateralVault.deploy(routerAddress, masterChainSelector, masterReceiverAddress);
-    await collateralVault.waitForDeployment();
-    console.log(`CollateralVault deployed to: ${collateralVault.target}`);
+    const vault = await CollateralVault.deploy(router, masterChainSelector, masterReceiver);
+    await vault.waitForDeployment();
+    const vaultAddr = await vault.getAddress();
+    console.log(`CollateralVault: ${vaultAddr}`);
+
+    deployments[networkName] = {
+        CollateralVault: vaultAddr
+    };
+
+    fs.writeFileSync(deploymentsPath, JSON.stringify(deployments, null, 2));
 }
 
 main().catch((error) => {

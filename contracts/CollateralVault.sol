@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {CCIPReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol";
-import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
+import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/applications/CCIPReceiver.sol";
+import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -32,7 +32,7 @@ contract CollateralVault is CCIPReceiver, SatelliteCCIPSender, Ownable {
         address _router, 
         uint64 _masterChainSelector, 
         address _masterReceiver
-    ) CCIPReceiver(_router) SatelliteCCIPSender(_router, _masterChainSelector, _masterReceiver) Ownable() {}
+    ) CCIPReceiver(_router) SatelliteCCIPSender(_router, _masterChainSelector, _masterReceiver) Ownable(msg.sender) {}
 
     function setPriceFeed(address _token, address _feed) external onlyOwner {
         s_tokenPriceFeeds[_token] = _feed;

@@ -13,7 +13,7 @@ contract DebtManager is Ownable {
     event DebtCreated(address indexed user, uint256 amount);
     event DebtRepaid(address indexed user, uint256 amount);
 
-    constructor() Ownable() {}
+    constructor() Ownable(msg.sender) {}
 
     modifier onlyAuthorized() {
         require(msg.sender == s_bnplRouter || msg.sender == owner(), "Unauthorized");

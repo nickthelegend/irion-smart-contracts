@@ -1,0 +1,14 @@
+{
+  "avalancheFuji": {
+    "CreditManager": "0x214730188780a3A64fD24ede85f2724535772Ff0",
+    "DebtManager": "0x38E9cDB0eBc128bEA55c36C03D5532697669132d",
+    "MasterCCIPReceiver": "0xEaa46cBBcAA628f923b3AEF76E560b3ba7E82747",
+    "BNPLRouter": "0x306613586DA080D9CCC41D469F2EEB282745A6aa"
+  },
+  "baseSepolia": {
+    "CollateralVault": "0xCC87F6051Fab93D78355C17f42E62193D8Aa0Daa"
+  },
+  "ethereumSepolia": {
+    "CollateralVault": "0x58e67dEEEcde20f10eD90B5191f08f39e81B6658"
+  }
+}

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
-import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
+import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRouterClient.sol";
+import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {CreditManager} from "./CreditManager.sol";
 import {DebtManager} from "./DebtManager.sol";
@@ -20,7 +20,7 @@ contract LiquidationController is Ownable {
 
     event LiquidationTriggered(address indexed user, uint64 indexed chainId, address token);
 
-    constructor(address _creditManager, address _debtManager, address _router) Ownable() {
+    constructor(address _creditManager, address _debtManager, address _router) Ownable(msg.sender) {
         i_creditManager = CreditManager(_creditManager);
         i_debtManager = DebtManager(_debtManager);
         i_router = IRouterClient(_router);

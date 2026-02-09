@@ -20,7 +20,7 @@ contract CreditManager is Ownable {
 
     event CollateralUpdated(address indexed user, uint64 indexed chainId, address token, uint256 newUsdValue);
     
-    constructor() Ownable() {}
+    constructor() Ownable(msg.sender) {}
 
     modifier onlyAuthorized() {
         require(msg.sender == s_masterReceiver || msg.sender == s_bnplRouter || msg.sender == s_liquidationController || msg.sender == owner(), "Unauthorized");
@@ -32,6 +32,11 @@ contract CreditManager is Ownable {
         s_bnplRouter = _router;
         s_liquidationController = _liquidator;
     }
+
+    mapping(address => bool) public s_userVerified;
+
+    event UserVerified(address indexed user);
+    event KYCSubmitted(address indexed user, string cid);
 
     /// @notice Updates collateral value from Satellite chain messages
     function updateCollateral(address _user, uint64 _chainId, address _token, uint256 _newUsdValue) external onlyAuthorized {
@@ -62,8 +67,19 @@ contract CreditManager is Ownable {
         emit CollateralUpdated(_user, _chainId, _token, s_userCollateralValue[_user][_chainId][_token]);
     }
 
+    function submitKYC(string memory _cid) external {
+        emit KYCSubmitted(msg.sender, _cid);
+    }
+
+    /// @notice Mock verification for KYC
+    function verifyUser(address _user) external onlyOwner {
+        s_userVerified[_user] = true;
+        emit UserVerified(_user);
+    }
+
     /// @notice Calculates the credit limit for a user based on LTV
     function getCreditLimit(address _user) public view returns (uint256) {
+        if (!s_userVerified[_user]) return 0;
         return (s_userTotalCollateralUSD[_user] * LTV_BASIS_POINTS) / MAX_BASIS_POINTS;
     }
 }

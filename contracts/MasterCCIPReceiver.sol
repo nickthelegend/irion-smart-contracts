@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {CCIPReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol";
-import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
-import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
+import {CCIPReceiver} from "@chainlink/contracts-ccip/contracts/applications/CCIPReceiver.sol";
+import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
+import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRouterClient.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {CreditManager} from "./CreditManager.sol";
 import {DebtManager} from "./DebtManager.sol";
@@ -26,7 +26,7 @@ contract MasterCCIPReceiver is CCIPReceiver, Ownable {
     event MessageReceived(bytes32 indexed messageId, uint64 indexed sourceChainSelector, address sender);
     event WithdrawApproved(address indexed user, uint64 indexed chainId, address token, uint256 amount);
 
-    constructor(address _router, address _creditManager, address _debtManager) CCIPReceiver(_router) Ownable() {
+    constructor(address _router, address _creditManager, address _debtManager) CCIPReceiver(_router) Ownable(msg.sender) {
         i_creditManager = CreditManager(_creditManager);
         i_debtManager = DebtManager(_debtManager);
     }
